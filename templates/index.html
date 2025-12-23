@@ -13,6 +13,16 @@
             <ul class="nav-links">
                 <li><a href="#draft" class="nav-link">Draft Assistant</a></li>
             </ul>
+            <div id="auth-section" style="display: none;">
+                <button class="btn btn-small" onclick="showLoginModal()">Login</button>
+                <button class="btn btn-small btn-secondary" onclick="showSignupModal()">Sign Up</button>
+            </div>
+            <div id="user-section" style="display: none;">
+                <span id="user-email" style="margin-right: 1rem;"></span>
+                <span id="user-tier" class="badge" style="margin-right: 1rem;"></span>
+                <button class="btn btn-small" id="upgrade-btn" onclick="upgradeToPremium()">Upgrade to Premium</button>
+                <button class="btn btn-small btn-secondary" onclick="logout()">Logout</button>
+            </div>
         </div>
     </nav>
 
@@ -100,6 +110,47 @@
         </section>
     </main>
 
+    <!-- Auth Modals -->
+    <div id="login-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('login-modal')">&times;</span>
+            <h2>Login</h2>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" class="form-input" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="signup-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('signup-modal')">&times;</span>
+            <h2>Sign Up</h2>
+            <form onsubmit="handleSignup(event)">
+                <div class="form-group">
+                    <label for="signup-name">Full Name</label>
+                    <input type="text" id="signup-name" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="signup-email">Email</label>
+                    <input type="email" id="signup-email" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" class="form-input" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Sign Up</button>
+            </form>
+        </div>
+    </div>
+
     <footer class="footer">
         <div class="container">
             <p>&copy; 2024 Kickoff Kings. All rights reserved.</p>
@@ -107,5 +158,98 @@
     </footer>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // Modal functions
+        function showLoginModal() {
+            document.getElementById('login-modal').style.display = 'block';
+        }
+        
+        function showSignupModal() {
+            document.getElementById('signup-modal').style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        async function handleLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const success = await login(email, password);
+            if (success) {
+                closeModal('login-modal');
+            }
+        }
+        
+        async function handleSignup(event) {
+            event.preventDefault();
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const fullName = document.getElementById('signup-name').value;
+            const success = await signup(email, password, fullName);
+            if (success) {
+                closeModal('signup-modal');
+            }
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const loginModal = document.getElementById('login-modal');
+            const signupModal = document.getElementById('signup-modal');
+            if (event.target == loginModal) {
+                loginModal.style.display = 'none';
+            }
+            if (event.target == signupModal) {
+                signupModal.style.display = 'none';
+            }
+        }
+    </script>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.8);
+        }
+        .modal-content {
+            background-color: #1a1a1a;
+            margin: 15% auto;
+            padding: 2rem;
+            border: 1px solid #333;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            color: white;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: white;
+        }
+        .badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        .premium-badge {
+            background-color: #FFD700;
+            color: #000;
+        }
+        .free-badge {
+            background-color: #666;
+            color: #fff;
+        }
+    </style>
 </body>
 </html>

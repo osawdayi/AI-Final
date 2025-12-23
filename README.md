@@ -1,6 +1,6 @@
 # Kickoff Kings - Fantasy Football Predictions Website
 
-A comprehensive fantasy football website that uses historical data to predict player performance and provides draft assistance.
+A comprehensive fantasy football website that uses historical data to predict player performance and provides AI-powered draft assistance with user authentication and premium subscriptions.
 
 ## Features
 
@@ -12,6 +12,10 @@ A comprehensive fantasy football website that uses historical data to predict pl
   - Your draft position
   - Already drafted players
   - Shows player name, team, position, position rank, and projected points
+- **User Authentication**: Secure sign up and login powered by Supabase
+- **Data Persistence**: Save draft sessions and player data in Supabase database
+- **AI-Powered Analysis**: Premium feature using OpenAI for enhanced draft recommendations
+- **Premium Subscriptions**: Stripe integration for subscription management
 
 ## Color Scheme
 
@@ -27,15 +31,31 @@ A comprehensive fantasy football website that uses historical data to predict pl
 pip install -r requirements.txt
 ```
 
-2. Run the Flask application:
+2. Set up environment variables:
+   - Copy `.env.example` to `.env` (or create `.env` file)
+   - Fill in your API keys (see `INTEGRATION_SETUP.md` for detailed setup instructions)
+   - Required keys:
+     - `SUPABASE_URL` and `SUPABASE_KEY` (for database and auth)
+     - `OPENAI_API_KEY` (for AI features)
+     - `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` (for payments)
+     - `SECRET_KEY` (for Flask sessions)
+
+3. Set up Supabase database:
+   - Create a Supabase project
+   - Run the SQL script in `supabase_schema.sql` in the Supabase SQL editor
+   - This creates all necessary tables and security policies
+
+4. Run the Flask application:
 ```bash
 python app.py
 ```
 
-3. Open your browser and navigate to:
+5. Open your browser and navigate to:
 ```
 http://localhost:5000
 ```
+
+**See `INTEGRATION_SETUP.md` for detailed setup instructions for Supabase, OpenAI, and Stripe.**
 
 ## Usage
 
@@ -55,19 +75,26 @@ http://localhost:5000
 ## Project Structure
 
 ```
-Capstone-Website/
-├── app.py                 # Flask backend application
+AI-Final/
+├── app.py                 # Flask backend application with API routes
+├── config.py              # Configuration and environment variables
+├── supabase_client.py     # Supabase client and database operations
+├── openai_service.py      # OpenAI integration for AI features
+├── stripe_service.py      # Stripe integration for payments
 ├── scraper.py             # ESPN web scraper
 ├── fantasy_calculator.py  # Fantasy points calculator
 ├── prediction_model.py    # Prediction model using historical data
+├── supabase_schema.sql    # Database schema for Supabase
 ├── requirements.txt       # Python dependencies
+├── .env.example           # Example environment variables file
+├── INTEGRATION_SETUP.md   # Detailed setup guide for integrations
 ├── templates/
 │   └── index.html        # Main HTML template
 └── static/
     ├── css/
     │   └── style.css     # Styling
     └── js/
-        └── app.js        # Frontend JavaScript
+        └── app.js        # Frontend JavaScript with auth
 ```
 
 ## Fantasy Scoring Rules
@@ -82,12 +109,34 @@ Based on ESPN standard scoring:
 - Return TDs: 6 points
 - Bonus points for milestone games (300+ passing yards, 100+ rushing/receiving yards, etc.)
 
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/signup` - Create new user account
+- `POST /api/auth/login` - Login user
+- `POST /api/auth/logout` - Logout user
+- `GET /api/auth/me` - Get current user info
+
+### Draft & Predictions
+- `POST /api/scrape` - Scrape and cache player data
+- `POST /api/predictions` - Get player predictions
+- `POST /api/draft-assistant` - Get draft recommendations (includes AI analysis for premium users)
+- `GET /api/draft-sessions` - Get user's draft sessions
+- `DELETE /api/draft-sessions/<id>` - Delete draft session
+
+### Payments
+- `POST /api/stripe/create-checkout` - Create Stripe checkout session
+- `POST /api/stripe/create-portal` - Create customer portal session
+- `POST /api/stripe/webhook` - Handle Stripe webhooks
+
 ## Notes
 
 - The scraper includes fallback sample data for development/testing
 - ESPN's website structure may change, requiring scraper updates
 - The prediction model uses historical averages and trends
-- For production use, consider adding authentication and data persistence
+- Authentication and data persistence are now implemented via Supabase
+- Premium features require an active Stripe subscription
+- AI analysis is powered by OpenAI's GPT-4o-mini model
 
 ## License
 

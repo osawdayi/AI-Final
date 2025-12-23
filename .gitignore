@@ -13,4 +13,5 @@ ENV/
 *.pkl
 .DS_Store
 *.log
+.env
 

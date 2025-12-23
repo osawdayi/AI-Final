@@ -3,6 +3,9 @@
 let playersData = [];
 let draftedPlayers = [];
 let predictionsLoaded = false;
+let currentUser = null;
+let authToken = localStorage.getItem('auth_token');
+let currentDraftSessionId = null;
 
 // DOM Elements
 const loadDataBtn = document.getElementById('load-data-btn');
@@ -90,15 +93,22 @@ async function getDraftRecommendations() {
         const numTeams = parseInt(document.getElementById('num-teams').value) || 12;
         const draftPosition = parseInt(document.getElementById('draft-position').value) || 1;
         
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        if (authToken) {
+            headers['Authorization'] = `Bearer ${authToken}`;
+        }
+        
         const response = await fetch('/api/draft-assistant', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: headers,
             body: JSON.stringify({
                 num_teams: numTeams,
                 draft_position: draftPosition,
-                already_drafted: draftedPlayers
+                already_drafted: draftedPlayers,
+                session_id: currentDraftSessionId
             })
         });
         
@@ -107,9 +117,24 @@ async function getDraftRecommendations() {
         if (data.success) {
             displayDraftTable(data.recommendations);
             updateDraftInfo(data);
+            
+            // Save session ID if returned
+            if (data.session_id) {
+                currentDraftSessionId = data.session_id;
+            }
+            
+            // Display AI analysis if available (premium feature)
+            if (data.ai_analysis) {
+                displayAIAnalysis(data.ai_analysis);
+            }
+            
             showNotification('Draft recommendations updated!', 'success');
         } else {
-            showNotification('Error: ' + data.error, 'error');
+            if (data.error === 'Premium subscription required') {
+                showNotification('Premium subscription required for AI analysis', 'error');
+            } else {
+                showNotification('Error: ' + data.error, 'error');
+            }
         }
     } catch (error) {
         console.error('Error getting recommendations:', error);
@@ -156,10 +181,44 @@ function displayDraftTable(recommendations) {
 // Update draft info
 function updateDraftInfo(data) {
     const draftInfo = document.getElementById('draft-info');
-    document.getElementById('current-pick').textContent = data.current_pick;
-    document.getElementById('round-number').textContent = data.round_number;
-    document.getElementById('pick-in-round').textContent = data.pick_in_round;
-    draftInfo.style.display = 'block';
+    if (draftInfo) {
+        document.getElementById('current-pick').textContent = data.current_pick;
+        document.getElementById('round-number').textContent = data.round_number;
+        document.getElementById('pick-in-round').textContent = data.pick_in_round;
+        draftInfo.style.display = 'block';
+    }
+}
+
+// Display AI analysis (premium feature)
+function displayAIAnalysis(analysis) {
+    let analysisDiv = document.getElementById('ai-analysis');
+    if (!analysisDiv) {
+        analysisDiv = document.createElement('div');
+        analysisDiv.id = 'ai-analysis';
+        analysisDiv.className = 'card';
+        analysisDiv.style.marginTop = '1rem';
+        
+        const title = document.createElement('h3');
+        title.className = 'card-title';
+        title.textContent = '🤖 AI Draft Analysis';
+        analysisDiv.appendChild(title);
+        
+        const content = document.createElement('div');
+        content.id = 'ai-analysis-content';
+        content.style.padding = '1rem';
+        content.style.backgroundColor = '#1a1a1a';
+        content.style.borderRadius = '8px';
+        content.style.whiteSpace = 'pre-wrap';
+        content.style.lineHeight = '1.6';
+        analysisDiv.appendChild(content);
+        
+        const draftSection = document.querySelector('#draft');
+        if (draftSection) {
+            draftSection.querySelector('.container').appendChild(analysisDiv);
+        }
+    }
+    
+    document.getElementById('ai-analysis-content').textContent = analysis;
 }
 
 // Add drafted player
@@ -292,3 +351,175 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Authentication functions
+async function signup(email, password, fullName = '') {
+    try {
+        const response = await fetch('/api/auth/signup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email,
+                password,
+                full_name: fullName
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            authToken = data.session.access_token;
+            localStorage.setItem('auth_token', authToken);
+            currentUser = data.user;
+            updateAuthUI();
+            showNotification('Account created successfully!', 'success');
+            return true;
+        } else {
+            showNotification('Error: ' + data.error, 'error');
+            return false;
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+        return false;
+    }
+}
+
+async function login(email, password) {
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email,
+                password
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            authToken = data.session.access_token;
+            localStorage.setItem('auth_token', authToken);
+            currentUser = data.user;
+            updateAuthUI();
+            showNotification('Logged in successfully!', 'success');
+            return true;
+        } else {
+            showNotification('Error: ' + data.error, 'error');
+            return false;
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+        return false;
+    }
+}
+
+async function logout() {
+    try {
+        const response = await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        authToken = null;
+        currentUser = null;
+        currentDraftSessionId = null;
+        localStorage.removeItem('auth_token');
+        updateAuthUI();
+        showNotification('Logged out successfully', 'success');
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
+}
+
+async function checkAuth() {
+    if (!authToken) return;
+    
+    try {
+        const response = await fetch('/api/auth/me', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            currentUser = data.user;
+            updateAuthUI();
+        } else {
+            authToken = null;
+            localStorage.removeItem('auth_token');
+        }
+    } catch (error) {
+        console.error('Auth check error:', error);
+        authToken = null;
+        localStorage.removeItem('auth_token');
+    }
+}
+
+function updateAuthUI() {
+    const authSection = document.getElementById('auth-section');
+    const userSection = document.getElementById('user-section');
+    
+    if (currentUser) {
+        if (authSection) authSection.style.display = 'none';
+        if (userSection) {
+            userSection.style.display = 'block';
+            const userEmail = userSection.querySelector('#user-email');
+            const userTier = userSection.querySelector('#user-tier');
+            const upgradeBtn = document.getElementById('upgrade-btn');
+            
+            if (userEmail) userEmail.textContent = currentUser.email;
+            if (userTier) {
+                const tier = currentUser.subscription_tier || 'free';
+                userTier.textContent = tier;
+                userTier.className = tier === 'premium' ? 'premium-badge' : 'free-badge';
+            }
+            if (upgradeBtn) {
+                upgradeBtn.style.display = (currentUser.subscription_tier === 'premium') ? 'none' : 'inline-block';
+            }
+        }
+    } else {
+        if (authSection) authSection.style.display = 'block';
+        if (userSection) userSection.style.display = 'none';
+    }
+}
+
+async function upgradeToPremium() {
+    if (!currentUser) {
+        showNotification('Please log in to upgrade', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/stripe/create-checkout', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            window.location.href = data.url;
+        } else {
+            showNotification('Error: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+    }
+}
+
+// Initialize auth on page load
+document.addEventListener('DOMContentLoaded', () => {
+    checkAuth();
+});
