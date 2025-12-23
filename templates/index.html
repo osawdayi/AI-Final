@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kickoff Kings - Fantasy Football Draft Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">🏈 Kickoff Kings</h1>
+            <ul class="nav-links">
+                <li><a href="#draft" class="nav-link">Draft Assistant</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="container">
+                <h2 class="hero-title">Fantasy Football Draft Assistant</h2>
+                <p class="hero-subtitle">Get AI-powered draft recommendations based on projected season performance</p>
+            </div>
+        </section>
+
+        <!-- Draft Assistant Section -->
+        <section id="draft" class="section">
+            <div class="container">
+                <div class="card">
+                    <h2 class="section-title">Draft Settings</h2>
+                    
+                    <div class="draft-settings">
+                        <div class="form-group">
+                            <label for="num-teams">Number of Teams</label>
+                            <input type="number" id="num-teams" min="8" max="16" value="12" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="draft-position">Your Draft Position</label>
+                            <input type="number" id="draft-position" min="1" max="16" value="1" class="form-input">
+                        </div>
+                    </div>
+                    <p style="color: #666; font-size: 0.9rem; margin-top: -1rem; margin-bottom: 1rem;">
+                        Predictions are based on a 17-game season for the upcoming year
+                    </p>
+
+                    <div class="controls">
+                        <button id="load-data-btn" class="btn btn-primary">Load Player Predictions</button>
+                        <div class="loading" id="loading" style="display: none;">
+                            <span>Loading player data...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Already Drafted Players</h3>
+                    <div class="drafted-players-section">
+                        <div class="drafted-list" id="drafted-list">
+                            <p class="empty-state">No players drafted yet</p>
+                        </div>
+                        <div class="add-drafted-form">
+                            <input type="text" id="drafted-player-input" placeholder="Enter player name to add" class="form-input">
+                            <button id="add-drafted-btn" class="btn btn-small btn-secondary">Add</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="controls">
+                        <button id="get-recommendations-btn" class="btn btn-primary" disabled>Get Draft Recommendations</button>
+                        <div class="draft-info" id="draft-info" style="display: none;">
+                            <p>Current Pick: <span id="current-pick"></span></p>
+                            <p>Round: <span id="round-number"></span>, Pick: <span id="pick-in-round"></span></p>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="draft-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Name</th>
+                                    <th>Team</th>
+                                    <th>Position</th>
+                                    <th>Pos Rank</th>
+                                    <th>Projected Points</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="draft-tbody">
+                                <tr>
+                                    <td colspan="7" class="empty-state">Click "Load Player Predictions" to begin</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Kickoff Kings. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
