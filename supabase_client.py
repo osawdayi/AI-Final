@@ -1,21 +1,48 @@
 """
 Supabase client and helper functions
 """
-from supabase import create_client, Client
 from config import Config
 from typing import Optional, Dict, List
 import pandas as pd
+
+# Try to import Supabase, but allow app to run without it
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Supabase library not available: {e}")
+    SUPABASE_AVAILABLE = False
+    Client = None
 
 class SupabaseService:
     """Service class for Supabase operations"""
     
     def __init__(self):
         self.client: Optional[Client] = None
-        if Config.SUPABASE_URL and Config.SUPABASE_KEY:
-            self.client = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
-        elif Config.SUPABASE_URL and Config.SUPABASE_SERVICE_KEY:
+        if not SUPABASE_AVAILABLE:
+            print("Supabase library not available. Running without database features.")
+            return
+            
+        # Check if values are actual URLs/keys, not placeholders
+        has_valid_url = Config.SUPABASE_URL and Config.SUPABASE_URL.startswith('http')
+        has_valid_key = Config.SUPABASE_KEY and not Config.SUPABASE_KEY.startswith('your_')
+        has_valid_service_key = Config.SUPABASE_SERVICE_KEY and not Config.SUPABASE_SERVICE_KEY.startswith('your_')
+        
+        if has_valid_url and has_valid_key:
+            try:
+                self.client = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
+            except Exception as e:
+                print(f"Warning: Failed to initialize Supabase client with anon key: {e}")
+                print("The app will run without Supabase features. Check your .env configuration.")
+                self.client = None
+        elif has_valid_url and has_valid_service_key:
             # Use service key for server-side operations
-            self.client = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
+            try:
+                self.client = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
+            except Exception as e:
+                print(f"Warning: Failed to initialize Supabase client with service key: {e}")
+                print("The app will run without Supabase features. Check your .env configuration.")
+                self.client = None
     
     def is_configured(self) -> bool:
         """Check if Supabase is configured"""

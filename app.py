@@ -483,7 +483,7 @@ def create_portal():
     base_url = request.headers.get('Origin', request.host_url)
     portal_url = stripe_service.create_customer_portal_session(
         profile['stripe_customer_id'],
-        f'{base_url}/dashboard'
+        f'{base_url}#profile'
     )
     
     if portal_url:
@@ -493,6 +493,16 @@ def create_portal():
         })
     else:
         return jsonify({'success': False, 'error': 'Failed to create portal session'}), 500
+
+@app.route('/payment/success')
+def payment_success():
+    """Payment success page - redirects to profile"""
+    return render_template('index.html', payment_success=True)
+
+@app.route('/payment/cancel')
+def payment_cancel():
+    """Payment cancellation page"""
+    return render_template('index.html', payment_cancelled=True)
 
 @app.route('/api/stripe/webhook', methods=['POST'])
 def stripe_webhook():
@@ -508,5 +518,20 @@ def stripe_webhook():
         return jsonify({'success': False, 'error': 'Webhook handling failed'}), 400
 
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    print("=" * 50)
+    print("Starting Kickoff Kings Flask Application")
+    print("=" * 50)
+    print(f"Supabase configured: {supabase_service.is_configured()}")
+    print(f"OpenAI configured: {openai_service.is_configured()}")
+    print(f"Stripe configured: {stripe_service.is_configured()}")
+    print("=" * 50)
+    print("Server starting on http://127.0.0.1:5000")
+    print("Press CTRL+C to stop")
+    print("=" * 50)
+    try:
+        app.run(debug=True, host='127.0.0.1', port=5000)
+    except Exception as e:
+        print(f"Error starting server: {e}")
+        import traceback
+        traceback.print_exc()
 

@@ -12,15 +12,17 @@
             <h1 class="logo">🏈 Kickoff Kings</h1>
             <ul class="nav-links">
                 <li><a href="#draft" class="nav-link">Draft Assistant</a></li>
+                <li><a href="#profile" class="nav-link" id="profile-link" style="display: none;">Profile</a></li>
             </ul>
             <div id="auth-section" style="display: none;">
                 <button class="btn btn-small" onclick="showLoginModal()">Login</button>
                 <button class="btn btn-small btn-secondary" onclick="showSignupModal()">Sign Up</button>
             </div>
             <div id="user-section" style="display: none;">
-                <span id="user-email" style="margin-right: 1rem;"></span>
+                <span id="user-email" style="margin-right: 1rem; color: white;"></span>
                 <span id="user-tier" class="badge" style="margin-right: 1rem;"></span>
                 <button class="btn btn-small" id="upgrade-btn" onclick="upgradeToPremium()">Upgrade to Premium</button>
+                <button class="btn btn-small" id="manage-subscription-btn" style="display: none;" onclick="manageSubscription()">Manage Subscription</button>
                 <button class="btn btn-small btn-secondary" onclick="logout()">Logout</button>
             </div>
         </div>
@@ -104,6 +106,44 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Profile/Dashboard Section -->
+        <section id="profile" class="section" style="display: none;">
+            <div class="container">
+                <div class="card">
+                    <h2 class="section-title">Your Profile</h2>
+                    <div id="profile-content">
+                        <div class="profile-info">
+                            <div class="info-item">
+                                <strong>Email:</strong> <span id="profile-email"></span>
+                            </div>
+                            <div class="info-item">
+                                <strong>Subscription Tier:</strong> <span id="profile-tier" class="badge"></span>
+                            </div>
+                            <div class="info-item" id="subscription-info" style="display: none;">
+                                <strong>Subscription Status:</strong> <span id="subscription-status"></span>
+                            </div>
+                        </div>
+
+                        <div class="profile-actions" style="margin-top: 2rem;">
+                            <h3>Subscription Management</h3>
+                            <p style="color: #666; margin-bottom: 1rem;">
+                                Manage your subscription, payment method, and billing information through Stripe's secure portal.
+                            </p>
+                            <button class="btn btn-primary" id="profile-upgrade-btn" onclick="upgradeToPremium()">Upgrade to Premium</button>
+                            <button class="btn btn-secondary" id="profile-manage-btn" style="display: none;" onclick="manageSubscription()">Manage Subscription</button>
+                        </div>
+
+                        <div class="draft-sessions" style="margin-top: 2rem;">
+                            <h3>Saved Draft Sessions</h3>
+                            <div id="draft-sessions-list">
+                                <p class="empty-state">Loading your draft sessions...</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -249,6 +289,31 @@
         .free-badge {
             background-color: #666;
             color: #fff;
+        }
+        .profile-info {
+            margin-bottom: 2rem;
+        }
+        .info-item {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #333;
+        }
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        .info-item strong {
+            display: inline-block;
+            min-width: 150px;
+            color: #DC143C;
+        }
+        .draft-session-item {
+            transition: background-color 0.2s;
+        }
+        .draft-session-item:hover {
+            background-color: #252525 !important;
+        }
+        .profile-actions, .draft-sessions {
+            padding-top: 1.5rem;
+            border-top: 1px solid #333;
         }
     </style>
 </body>

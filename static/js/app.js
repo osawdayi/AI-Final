@@ -407,6 +407,10 @@ async function login(email, password) {
             currentUser = data.user;
             updateAuthUI();
             showNotification('Logged in successfully!', 'success');
+            // If on profile page, load profile data
+            if (window.location.hash === '#profile') {
+                loadProfileData();
+            }
             return true;
         } else {
             showNotification('Error: ' + data.error, 'error');
@@ -468,9 +472,13 @@ async function checkAuth() {
 function updateAuthUI() {
     const authSection = document.getElementById('auth-section');
     const userSection = document.getElementById('user-section');
+    const profileLink = document.getElementById('profile-link');
+    const manageSubBtn = document.getElementById('manage-subscription-btn');
+    const profileManageBtn = document.getElementById('profile-manage-btn');
     
     if (currentUser) {
         if (authSection) authSection.style.display = 'none';
+        if (profileLink) profileLink.style.display = 'block';
         if (userSection) {
             userSection.style.display = 'block';
             const userEmail = userSection.querySelector('#user-email');
@@ -486,10 +494,21 @@ function updateAuthUI() {
             if (upgradeBtn) {
                 upgradeBtn.style.display = (currentUser.subscription_tier === 'premium') ? 'none' : 'inline-block';
             }
+            if (manageSubBtn) {
+                manageSubBtn.style.display = (currentUser.subscription_tier === 'premium') ? 'inline-block' : 'none';
+            }
+            if (profileManageBtn) {
+                profileManageBtn.style.display = (currentUser.subscription_tier === 'premium') ? 'inline-block' : 'none';
+            }
+        }
+        // Load profile data if on profile page
+        if (window.location.hash === '#profile') {
+            loadProfileData();
         }
     } else {
         if (authSection) authSection.style.display = 'block';
         if (userSection) userSection.style.display = 'none';
+        if (profileLink) profileLink.style.display = 'none';
     }
 }
 
@@ -519,7 +538,145 @@ async function upgradeToPremium() {
     }
 }
 
+async function manageSubscription() {
+    if (!currentUser) {
+        showNotification('Please log in', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/stripe/create-portal', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            window.location.href = data.url;
+        } else {
+            showNotification('Error: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+    }
+}
+
+async function loadProfileData() {
+    if (!currentUser || !authToken) return;
+    
+    // Update profile section
+    const profileEmail = document.getElementById('profile-email');
+    const profileTier = document.getElementById('profile-tier');
+    const profileUpgradeBtn = document.getElementById('profile-upgrade-btn');
+    
+    if (profileEmail) profileEmail.textContent = currentUser.email;
+    if (profileTier) {
+        const tier = currentUser.subscription_tier || 'free';
+        profileTier.textContent = tier;
+        profileTier.className = tier === 'premium' ? 'premium-badge' : 'free-badge';
+    }
+    if (profileUpgradeBtn) {
+        profileUpgradeBtn.style.display = (currentUser.subscription_tier === 'premium') ? 'none' : 'inline-block';
+    }
+    
+    // Load draft sessions
+    try {
+        const response = await fetch('/api/draft-sessions', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        const data = await response.json();
+        const sessionsList = document.getElementById('draft-sessions-list');
+        
+        if (data.success && data.sessions && data.sessions.length > 0) {
+            sessionsList.innerHTML = data.sessions.map(session => `
+                <div class="draft-session-item" style="padding: 1rem; margin-bottom: 1rem; background: #1a1a1a; border-radius: 8px;">
+                    <h4>${session.name || 'Untitled Draft'}</h4>
+                    <p><strong>Teams:</strong> ${session.num_teams} | <strong>Position:</strong> ${session.draft_position}</p>
+                    <p><strong>Drafted Players:</strong> ${session.already_drafted?.length || 0}</p>
+                    <p><strong>Created:</strong> ${new Date(session.created_at).toLocaleDateString()}</p>
+                    <button class="btn btn-small btn-secondary" onclick="deleteDraftSession('${session.id}')">Delete</button>
+                </div>
+            `).join('');
+        } else {
+            sessionsList.innerHTML = '<p class="empty-state">No saved draft sessions yet</p>';
+        }
+    } catch (error) {
+        console.error('Error loading draft sessions:', error);
+        const sessionsList = document.getElementById('draft-sessions-list');
+        if (sessionsList) {
+            sessionsList.innerHTML = '<p class="empty-state">Error loading draft sessions</p>';
+        }
+    }
+}
+
+async function deleteDraftSession(sessionId) {
+    if (!authToken) return;
+    
+    if (!confirm('Are you sure you want to delete this draft session?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/draft-sessions/${sessionId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            showNotification('Draft session deleted', 'success');
+            loadProfileData(); // Reload the list
+        } else {
+            showNotification('Error deleting session', 'error');
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+    }
+}
+
+// Handle hash changes to show/hide profile section
+function handleHashChange() {
+    const profileSection = document.getElementById('profile');
+    const draftSection = document.getElementById('draft');
+    
+    if (window.location.hash === '#profile') {
+        if (profileSection) profileSection.style.display = 'block';
+        if (draftSection) draftSection.style.display = 'none';
+        loadProfileData();
+    } else {
+        if (profileSection) profileSection.style.display = 'none';
+        if (draftSection) draftSection.style.display = 'block';
+    }
+}
+
 // Initialize auth on page load
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    
+    // Handle payment redirects from Stripe
+    const urlParams = new URLSearchParams(window.location.search);
+    if (window.location.pathname === '/payment/success') {
+        window.location.hash = '#profile';
+        setTimeout(() => {
+            checkAuth();
+            showNotification('Payment successful! Your premium subscription is now active.', 'success');
+        }, 1000);
+    } else if (window.location.pathname === '/payment/cancel') {
+        window.location.hash = '#profile';
+        setTimeout(() => {
+            checkAuth();
+            showNotification('Payment was cancelled.', 'error');
+        }, 1000);
+    }
 });
