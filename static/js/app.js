@@ -480,7 +480,7 @@ function updateAuthUI() {
         if (authSection) authSection.style.display = 'none';
         if (profileLink) profileLink.style.display = 'block';
         if (userSection) {
-            userSection.style.display = 'block';
+            userSection.style.display = 'flex';
             const userEmail = userSection.querySelector('#user-email');
             const userTier = userSection.querySelector('#user-tier');
             const upgradeBtn = document.getElementById('upgrade-btn');
@@ -506,9 +506,82 @@ function updateAuthUI() {
             loadProfileData();
         }
     } else {
-        if (authSection) authSection.style.display = 'block';
+        if (authSection) authSection.style.display = 'flex';
         if (userSection) userSection.style.display = 'none';
         if (profileLink) profileLink.style.display = 'none';
+    }
+}
+
+async function loginWithGoogle() {
+    try {
+        const response = await fetch('/api/auth/google', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        console.log('Google OAuth response:', data);
+        
+        if (data.success) {
+            // Redirect to Google OAuth
+            console.log('Redirecting to OAuth URL:', data.url);
+            window.location.href = data.url;
+        } else {
+            console.error('Google OAuth error:', data);
+            const errorMsg = data.error || 'Unknown error';
+            const details = data.details ? `\nDetails: ${data.details}` : '';
+            showNotification('Error: ' + errorMsg + details, 'error');
+        }
+    } catch (error) {
+        console.error('Google OAuth fetch error:', error);
+        showNotification('Error: ' + error.message, 'error');
+    }
+}
+
+// Handle OAuth callback from URL hash
+function handleOAuthCallback() {
+    // Check if we're on the callback page
+    if (window.location.pathname === '/auth/callback') {
+        // Supabase OAuth returns tokens in the URL hash (fragment)
+        const hash = window.location.hash.substring(1);
+        const hashParams = new URLSearchParams(hash);
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        
+        if (accessToken) {
+            authToken = accessToken;
+            localStorage.setItem('auth_token', accessToken);
+            if (refreshToken) {
+                localStorage.setItem('refresh_token', refreshToken);
+            }
+            
+            // Clear the hash and redirect to home
+            window.history.replaceState(null, '', '/');
+            
+            // Check auth and update UI
+            setTimeout(() => {
+                checkAuth();
+                showNotification('Logged in with Google successfully!', 'success');
+            }, 500);
+        } else {
+            // Check for error in hash or query params
+            const error = hashParams.get('error_description') || hashParams.get('error');
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryError = urlParams.get('error_description') || urlParams.get('error');
+            const finalError = error || queryError;
+            
+            if (finalError) {
+                window.history.replaceState(null, '', '/');
+                setTimeout(() => {
+                    showNotification('Authentication error: ' + decodeURIComponent(finalError), 'error');
+                }, 500);
+            } else if (hash.length === 0 && window.location.search.length === 0) {
+                // No tokens and no errors - might still be loading
+                console.log('OAuth callback page loaded, waiting for redirect...');
+            }
+        }
     }
 }
 
@@ -660,6 +733,9 @@ function handleHashChange() {
 
 // Initialize auth on page load
 document.addEventListener('DOMContentLoaded', () => {
+    // Handle OAuth callback first
+    handleOAuthCallback();
+    
     checkAuth();
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);

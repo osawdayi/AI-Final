@@ -390,6 +390,64 @@ def login():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/auth/google', methods=['GET'])
+def google_oauth():
+    """Get Google OAuth URL"""
+    if not supabase_service.is_configured():
+        return jsonify({'success': False, 'error': 'Authentication not configured'}), 500
+    
+    try:
+        from urllib.parse import urlencode
+        
+        # Get the redirect URL - should be the full URL to the callback page
+        base_url = request.headers.get('Origin', request.host_url).rstrip('/')
+        if not base_url or base_url == 'None' or 'None' in base_url:
+            base_url = request.host_url.rstrip('/')
+        
+        redirect_to = f'{base_url}/auth/callback'
+        
+        # Construct OAuth URL manually (Supabase OAuth endpoint format)
+        # Format: https://{project_ref}.supabase.co/auth/v1/authorize?provider=google&redirect_to={redirect}
+        supabase_url = Config.SUPABASE_URL
+        if not supabase_url:
+            return jsonify({'success': False, 'error': 'SUPABASE_URL not configured'}), 500
+        
+        supabase_url = supabase_url.rstrip('/')
+        # Remove /auth/v1 if present, we'll add it
+        if supabase_url.endswith('/auth/v1'):
+            supabase_url = supabase_url[:-8]
+        
+        # Build the OAuth URL
+        params = {
+            'provider': 'google',
+            'redirect_to': redirect_to
+        }
+        oauth_url = f"{supabase_url}/auth/v1/authorize?{urlencode(params)}"
+        
+        return jsonify({
+            'success': True,
+            'url': oauth_url
+        })
+    except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
+        error_msg = str(e)
+        print(f"Google OAuth Error: {error_msg}")
+        print(f"Traceback: {error_traceback}")
+        # Return error in response for debugging
+        return jsonify({
+            'success': False, 
+            'error': error_msg,
+            'details': error_traceback.split('\n')[-3] if error_traceback else None
+        }), 500
+
+@app.route('/auth/callback')
+def auth_callback():
+    """Handle OAuth callback from Google - redirects to main page with hash"""
+    # Supabase will add access_token and refresh_token as hash fragments
+    # The frontend JavaScript will handle extracting these
+    return render_template('index.html')
+
 @app.route('/api/auth/logout', methods=['POST'])
 @require_auth
 def logout():
@@ -522,6 +580,8 @@ if __name__ == '__main__':
     print("Starting Kickoff Kings Flask Application")
     print("=" * 50)
     print(f"Supabase configured: {supabase_service.is_configured()}")
+    if supabase_service.is_configured():
+        print(f"Supabase URL: {Config.SUPABASE_URL}")
     print(f"OpenAI configured: {openai_service.is_configured()}")
     print(f"Stripe configured: {stripe_service.is_configured()}")
     print("=" * 50)

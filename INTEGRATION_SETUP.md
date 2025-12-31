@@ -33,11 +33,29 @@ This guide will help you set up Supabase, OpenAI, and Stripe integrations for th
 
 ### 1.3 Create Database Schema
 
-1. In Supabase, go to **SQL Editor**
-2. Open the file `supabase_schema.sql` from this project
-3. Copy and paste the entire SQL script
-4. Click **Run** to execute
-5. Verify tables were created by going to **Table Editor**
+1. **Open the SQL file locally:**
+   - In your code editor (VS Code, etc.), open the file `supabase_schema.sql` from this project
+   - Or use a text editor to open: `/Users/osawdayi2022/Downloads/AI-Final/supabase_schema.sql`
+   - Select all the contents (Cmd+A on Mac, Ctrl+A on Windows/Linux)
+   - Copy the entire SQL script (Cmd+C or Ctrl+C)
+
+2. **In Supabase Dashboard:**
+   - Go to your Supabase project
+   - Click on **SQL Editor** in the left sidebar (under "Project" section)
+   - Click **New Query** (or there may be a blank editor area)
+
+3. **Paste and Run:**
+   - Paste the copied SQL script into the SQL Editor (Cmd+V or Ctrl+V)
+   - Click the **Run** button (usually a green "Run" button or press Ctrl+Enter / Cmd+Enter)
+   - Wait for the query to complete (you should see a success message)
+
+4. **Verify:**
+   - Go to **Table Editor** in the left sidebar
+   - You should see these tables created:
+     - `profiles`
+     - `draft_sessions`
+     - `player_cache`
+     - `subscriptions`
 
 ### 1.4 Enable Email Authentication (Optional but Recommended)
 
