@@ -611,6 +611,41 @@ async function upgradeToPremium() {
     }
 }
 
+async function verifyPaymentSession(sessionId) {
+    if (!authToken) {
+        showNotification('Please log in to verify payment', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/stripe/verify-session', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                session_id: sessionId
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            // Update current user's subscription tier
+            if (currentUser) {
+                currentUser.subscription_tier = data.subscription_tier || 'premium';
+            }
+            updateAuthUI();
+            showNotification('Payment successful! Your premium subscription is now active.', 'success');
+        } else {
+            showNotification('Payment verified but subscription update failed: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error verifying payment session:', error);
+        showNotification('Payment successful, but could not verify subscription. Please refresh the page.', 'error');
+    }
+}
+
 async function manageSubscription() {
     if (!currentUser) {
         showNotification('Please log in', 'error');
@@ -743,11 +778,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle payment redirects from Stripe
     const urlParams = new URLSearchParams(window.location.search);
     if (window.location.pathname === '/payment/success') {
+        const sessionId = urlParams.get('session_id');
         window.location.hash = '#profile';
-        setTimeout(() => {
-            checkAuth();
-            showNotification('Payment successful! Your premium subscription is now active.', 'success');
-        }, 1000);
+        
+        // Wait for auth to be checked, then verify payment
+        setTimeout(async () => {
+            await checkAuth();
+            if (sessionId && authToken) {
+                // Verify the session and update subscription status
+                console.log('Verifying payment session:', sessionId);
+                await verifyPaymentSession(sessionId);
+            } else if (sessionId) {
+                console.warn('Session ID found but no auth token. Waiting...');
+                // Retry after a bit more time
+                setTimeout(async () => {
+                    await checkAuth();
+                    if (authToken) {
+                        await verifyPaymentSession(sessionId);
+                    } else {
+                        showNotification('Please log in to verify your payment', 'error');
+                    }
+                }, 1000);
+            }
+        }, 500);
     } else if (window.location.pathname === '/payment/cancel') {
         window.location.hash = '#profile';
         setTimeout(() => {

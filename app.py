@@ -14,6 +14,7 @@ from openai_service import openai_service
 from stripe_service import stripe_service
 import json
 from functools import wraps
+from datetime import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = Config.SECRET_KEY
@@ -555,7 +556,126 @@ def create_portal():
 @app.route('/payment/success')
 def payment_success():
     """Payment success page - redirects to profile"""
-    return render_template('index.html', payment_success=True)
+    # Get session_id from query params
+    session_id = request.args.get('session_id')
+    return render_template('index.html', payment_success=True, session_id=session_id)
+
+@app.route('/api/stripe/verify-session', methods=['POST'])
+@require_auth
+def verify_session():
+    """Verify Stripe checkout session and update subscription status"""
+    if not stripe_service.is_configured():
+        return jsonify({'success': False, 'error': 'Stripe not configured'}), 500
+    
+    try:
+        import stripe
+        data = request.json
+        session_id = data.get('session_id')
+        
+        if not session_id:
+            return jsonify({'success': False, 'error': 'Session ID required'}), 400
+        
+        print(f"Verifying session: {session_id}")
+        
+        # Retrieve the checkout session from Stripe
+        session = stripe.checkout.Session.retrieve(session_id)
+        print(f"Retrieved session, payment_status: {session.payment_status}, customer: {getattr(session, 'customer', None)}")
+        
+        if session.payment_status == 'paid':
+            user_id = request.current_user.get('id')
+            
+            # Get customer_id from session (Stripe creates it automatically for subscription mode)
+            customer_id = getattr(session, 'customer', None)
+            
+            print(f"Payment verified for user {user_id}")
+            print(f"Session customer ID: {customer_id}")
+            
+            # If customer_id is None, try to get it from the subscription
+            if not customer_id and hasattr(session, 'subscription') and session.subscription:
+                try:
+                    subscription = stripe.Subscription.retrieve(session.subscription)
+                    customer_id = subscription.customer
+                    print(f"Retrieved customer ID from subscription: {customer_id}")
+                except Exception as e:
+                    print(f"Error retrieving subscription: {e}")
+            
+            # If still no customer_id, try to find customer by email from the user profile
+            if not customer_id:
+                try:
+                    profile = supabase_service.get_user_profile(user_id) if supabase_service.is_configured() else None
+                    if profile and profile.get('email'):
+                        # Search for customer by email
+                        customers = stripe.Customer.list(email=profile['email'], limit=1)
+                        if customers.data:
+                            customer_id = customers.data[0].id
+                            print(f"Found customer ID by email lookup: {customer_id}")
+                except Exception as e:
+                    print(f"Error finding customer by email: {e}")
+            
+            # Update user profile with customer ID
+            if supabase_service.is_configured():
+                update_data = {
+                    'subscription_tier': 'premium'
+                }
+                
+                if customer_id:
+                    update_data['stripe_customer_id'] = customer_id
+                    print(f"Updating profile for user {user_id} to premium with customer ID: {customer_id}")
+                else:
+                    print(f"WARNING: No customer ID found, updating tier only")
+                
+                update_success = supabase_service.update_user_profile(user_id, update_data)
+                
+                if not update_success:
+                    print(f"ERROR: Failed to update user profile in database")
+                    import traceback
+                    traceback.print_exc()
+                else:
+                    print(f"✅ Profile updated successfully in database")
+                
+                # Try to get/create subscription record
+                if customer_id:
+                    try:
+                        subscriptions = stripe.Subscription.list(customer=customer_id, limit=1)
+                        if subscriptions.data:
+                            sub = subscriptions.data[0]
+                            # Create/update subscription record (period_start/end are timestamps)
+                            supabase_service.create_subscription(
+                                user_id=user_id,
+                                stripe_subscription_id=sub.id,
+                                stripe_price_id=sub.items.data[0].price.id,
+                                status=sub.status,
+                                period_start=sub.current_period_start,
+                                period_end=sub.current_period_end
+                            )
+                            print(f"✅ Subscription record created/updated in database")
+                    except Exception as e:
+                        print(f"Error creating subscription record: {e}")
+                        import traceback
+                        traceback.print_exc()
+            
+            # Get updated profile to verify
+            profile = supabase_service.get_user_profile(user_id) if supabase_service.is_configured() else None
+            print(f"Final profile state - tier: {profile.get('subscription_tier') if profile else 'None'}, customer_id: {profile.get('stripe_customer_id') if profile else 'None'}")
+            
+            return jsonify({
+                'success': True,
+                'subscription_tier': profile.get('subscription_tier', 'premium') if profile else 'premium',
+                'customer_id': profile.get('stripe_customer_id') if profile else None
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Payment not completed'}), 400
+            
+    except stripe.error.StripeError as e:
+        print(f"Stripe error verifying session: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        print(f"Error verifying session: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/payment/cancel')
 def payment_cancel():

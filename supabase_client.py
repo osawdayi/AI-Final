@@ -28,19 +28,23 @@ class SupabaseService:
         has_valid_key = Config.SUPABASE_KEY and not Config.SUPABASE_KEY.startswith('your_')
         has_valid_service_key = Config.SUPABASE_SERVICE_KEY and not Config.SUPABASE_SERVICE_KEY.startswith('your_')
         
-        if has_valid_url and has_valid_key:
-            try:
-                self.client = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
-            except Exception as e:
-                print(f"Warning: Failed to initialize Supabase client with anon key: {e}")
-                print("The app will run without Supabase features. Check your .env configuration.")
-                self.client = None
-        elif has_valid_url and has_valid_service_key:
-            # Use service key for server-side operations
+        # Prefer service key for server-side operations (bypasses RLS)
+        if has_valid_url and has_valid_service_key:
+            # Use service key for server-side operations (bypasses RLS)
             try:
                 self.client = create_client(Config.SUPABASE_URL, Config.SUPABASE_SERVICE_KEY)
+                print("✅ Supabase client initialized with SERVICE KEY (bypasses RLS)")
             except Exception as e:
                 print(f"Warning: Failed to initialize Supabase client with service key: {e}")
+                print("The app will run without Supabase features. Check your .env configuration.")
+                self.client = None
+        elif has_valid_url and has_valid_key:
+            # Fallback to anon key (subject to RLS)
+            try:
+                self.client = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
+                print("⚠️  Supabase client initialized with ANON KEY (subject to RLS)")
+            except Exception as e:
+                print(f"Warning: Failed to initialize Supabase client with anon key: {e}")
                 print("The app will run without Supabase features. Check your .env configuration.")
                 self.client = None
     
@@ -66,13 +70,34 @@ class SupabaseService:
     def update_user_profile(self, user_id: str, updates: Dict) -> bool:
         """Update user profile"""
         if not self.is_configured():
+            print("Cannot update profile: Supabase not configured")
             return False
         
         try:
-            self.client.table('profiles').update(updates).eq('id', user_id).execute()
-            return True
+            print(f"Updating profile for user_id: {user_id}")
+            print(f"Updates: {updates}")
+            
+            # Execute the update
+            response = self.client.table('profiles').update(updates).eq('id', user_id).execute()
+            
+            # Verify the update worked
+            if response.data:
+                print(f"Profile updated successfully: {response.data}")
+                return True
+            else:
+                print(f"Warning: Update returned no data. Checking if profile exists...")
+                # Check if profile exists
+                check_response = self.client.table('profiles').select('id').eq('id', user_id).execute()
+                if not check_response.data:
+                    print(f"Error: Profile with id {user_id} does not exist")
+                    return False
+                else:
+                    print(f"Profile exists but update returned no data. Update may have succeeded.")
+                    return True
         except Exception as e:
             print(f"Error updating user profile: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     # Draft session operations
@@ -231,23 +256,43 @@ class SupabaseService:
             return False
     
     def create_subscription(self, user_id: str, stripe_subscription_id: str, stripe_price_id: str, status: str, period_start, period_end) -> bool:
-        """Create a new subscription record"""
+        """Create or update a subscription record"""
         if not self.is_configured():
             return False
         
         try:
+            # Convert datetime to ISO format string if needed
+            if hasattr(period_start, 'isoformat'):
+                period_start_str = period_start.isoformat()
+            elif isinstance(period_start, (int, float)):
+                from datetime import datetime
+                period_start_str = datetime.fromtimestamp(period_start).isoformat()
+            else:
+                period_start_str = str(period_start)
+            
+            if hasattr(period_end, 'isoformat'):
+                period_end_str = period_end.isoformat()
+            elif isinstance(period_end, (int, float)):
+                from datetime import datetime
+                period_end_str = datetime.fromtimestamp(period_end).isoformat()
+            else:
+                period_end_str = str(period_end)
+            
             data = {
                 'user_id': user_id,
                 'stripe_subscription_id': stripe_subscription_id,
                 'stripe_price_id': stripe_price_id,
                 'status': status,
-                'current_period_start': period_start.isoformat() if hasattr(period_start, 'isoformat') else str(period_start),
-                'current_period_end': period_end.isoformat() if hasattr(period_end, 'isoformat') else str(period_end)
+                'current_period_start': period_start_str,
+                'current_period_end': period_end_str
             }
-            self.client.table('subscriptions').insert(data).execute()
+            # Use upsert to avoid duplicates
+            self.client.table('subscriptions').upsert(data, on_conflict='stripe_subscription_id').execute()
             return True
         except Exception as e:
-            print(f"Error creating subscription: {e}")
+            print(f"Error creating/updating subscription: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
 # Global instance

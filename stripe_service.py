@@ -38,6 +38,12 @@ class StripeService:
                 cancel_url=f'{base_url}/payment/cancel',
                 metadata={
                     'user_id': user_id
+                },
+                # Ensure customer is created with metadata
+                subscription_data={
+                    'metadata': {
+                        'user_id': user_id
+                    }
                 }
             )
             

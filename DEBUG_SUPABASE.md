@@ -130,3 +130,5 @@ Share those error messages for further debugging.
 - [ ] Flask server was restarted after updating .env
 - [ ] Terminal shows "Supabase configured: True"
 
+
+

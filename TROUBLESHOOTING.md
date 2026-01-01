@@ -124,3 +124,5 @@ python3 test_config.py
 - [ ] Supabase Google provider is enabled
 - [ ] Google OAuth credentials are added to Supabase
 
+
+
