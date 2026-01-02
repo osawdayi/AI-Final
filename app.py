@@ -5,6 +5,7 @@ Flask backend application with Supabase, OpenAI, and Stripe integration
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import pandas as pd
+import os
 from scraper import ESPNScraper
 from fantasy_calculator import FantasyPointsCalculator
 from prediction_model import FantasyPredictionModel
@@ -713,11 +714,17 @@ if __name__ == '__main__':
     print(f"OpenAI configured: {openai_service.is_configured()}")
     print(f"Stripe configured: {stripe_service.is_configured()}")
     print("=" * 50)
-    print("Server starting on http://127.0.0.1:5000")
+    
+    # Get port from environment variable (Railway, Heroku, etc.) or default to 5000
+    port = int(os.environ.get('PORT', 5000))
+    host = os.environ.get('HOST', '0.0.0.0')
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    
+    print(f"Server starting on http://{host}:{port}")
     print("Press CTRL+C to stop")
     print("=" * 50)
     try:
-        app.run(debug=True, host='127.0.0.1', port=5000)
+        app.run(debug=debug, host=host, port=port)
     except Exception as e:
         print(f"Error starting server: {e}")
         import traceback
