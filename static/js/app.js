@@ -128,6 +128,11 @@ async function getDraftRecommendations() {
                 displayAIAnalysis(data.ai_analysis);
             }
             
+            // Display AI strategy if available (premium feature)
+            if (data.ai_strategy) {
+                displayAIStrategy(data.ai_strategy);
+            }
+            
             showNotification('Draft recommendations updated!', 'success');
         } else {
             if (data.error === 'Premium subscription required') {
@@ -219,6 +224,44 @@ function displayAIAnalysis(analysis) {
     }
     
     document.getElementById('ai-analysis-content').textContent = analysis;
+}
+
+// Display AI strategy (premium feature)
+function displayAIStrategy(strategy) {
+    let strategyDiv = document.getElementById('ai-strategy');
+    if (!strategyDiv) {
+        strategyDiv = document.createElement('div');
+        strategyDiv.id = 'ai-strategy';
+        strategyDiv.className = 'card';
+        strategyDiv.style.marginTop = '1rem';
+        
+        const title = document.createElement('h3');
+        title.className = 'card-title';
+        title.textContent = '🎯 Personalized Draft Strategy';
+        strategyDiv.appendChild(title);
+        
+        const content = document.createElement('div');
+        content.id = 'ai-strategy-content';
+        content.style.padding = '1rem';
+        content.style.backgroundColor = '#1a1a1a';
+        content.style.borderRadius = '8px';
+        content.style.whiteSpace = 'pre-wrap';
+        content.style.lineHeight = '1.6';
+        strategyDiv.appendChild(content);
+        
+        const draftSection = document.querySelector('#draft');
+        if (draftSection) {
+            // Insert strategy before AI analysis if it exists, otherwise append
+            const aiAnalysis = draftSection.querySelector('#ai-analysis');
+            if (aiAnalysis) {
+                draftSection.querySelector('.container').insertBefore(strategyDiv, aiAnalysis);
+            } else {
+                draftSection.querySelector('.container').appendChild(strategyDiv);
+            }
+        }
+    }
+    
+    document.getElementById('ai-strategy-content').textContent = strategy;
 }
 
 // Add drafted player

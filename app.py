@@ -263,6 +263,14 @@ def draft_assistant():
             analysis = openai_service.get_draft_analysis(recommendations, draft_context)
             if analysis:
                 response_data['ai_analysis'] = analysis
+            
+            # Add personalized draft strategy (if user has drafted players)
+            if already_drafted:
+                strategy = openai_service.get_personalized_draft_strategy(
+                    already_drafted, num_teams, draft_position
+                )
+                if strategy:
+                    response_data['ai_strategy'] = strategy
         
         return jsonify(response_data)
     except Exception as e:
